@@ -1,0 +1,27 @@
+ECHO is on.
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore virtual environment directories
+venv/
+.venv/
+env/
+.env/
+
+# Ignore datasets (you don’t need to upload large datasets to GitHub)
+dataset/
+
+# Ignore temporary files
+*.log
+*.tmp
+
+# Ignore Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore system files for macOS
+.DS_Store
+
+# Ignore system files for Windows
+Thumbs.db
