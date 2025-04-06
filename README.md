@@ -2,7 +2,7 @@
 Enhancing Alzheimer patients’ Quality of Life through AI powered assistant
 
 This project has 3 parts
-1. The hardware part (the device) - ESP32, GPS module, OLED display, microphone and speaker modules, sound sensor
+1. The hardware part (the device) - ESP32, Camera module, GPS module, OLED display, microphone and speaker modules, sound sensor
 2. The AI models - face recognition(resnet-50) & scream detection(Wav2Vec2)
 3. Website - MERN stack
 
