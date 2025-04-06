@@ -7,46 +7,64 @@ import Aos from "aos";
 import "aos/dist/aos.css";
 axios.defaults.withCredentials = true;
 
-const Notes = ({ notes, setNotes, toast }) => {
+const Notes = ({ toast }) => {
+  const [notes, setNotes] = useState([]);
   const [noteTitle, setNoteTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Fetch notes from backend on mount
   useEffect(() => {
     Aos.init({ duration: 1000 });
-    console.log("3");
+    fetchNotes(); // Fetch notes when component mounts
+  }, []);
+
+  // Function to fetch notes from backend
+  const fetchNotes = () => {
     axios
       .get(`${process.env.REACT_APP_API_URL}/note/getNote`)
       .then((res) => {
         setNotes(res.data);
       })
-      .catch((err) => console.log(err));
-  }, [setNotes]);
+      .catch((err) => {
+        console.log(err);
+        toast.error("Failed to fetch notes");
+      });
+  };
 
+  // Filter notes based on search query
   const filteredItems = useMemo(() => {
     return notes.filter((eachItem) => {
       return eachItem.title.toLowerCase().includes(searchQuery.toLowerCase());
     });
   }, [notes, searchQuery]);
 
+  // Add a new note
   const addNote = (e) => {
     e.preventDefault();
     if (noteTitle === "") {
       toast.error("Please enter title");
       return;
     }
-    const id = crypto.randomUUID();
-    const title = noteTitle;
-    const date = new Date().toISOString().split("T")[0];
-    const time = new Date().toLocaleTimeString();
+
     const newNote = {
-      id: id,
+      title: noteTitle,
       noteText: "",
-      date: date,
-      time: time,
-      title: title,
+      date: new Date().toISOString().split("T")[0],
+      time: new Date().toLocaleTimeString(),
     };
-    setNotes([...notes, newNote]);
-    setNoteTitle("");
+
+    // Send POST request to backend to create new note
+    axios
+      .post(`${process.env.REACT_APP_API_URL}/note/postNote`, newNote)
+      .then((res) => {
+        setNotes((prevNotes) => [...prevNotes, res.data]);
+        setNoteTitle("");
+        toast.success("Note created successfully");
+      })
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to create note");
+      });
   };
 
   return (
@@ -78,11 +96,12 @@ const Notes = ({ notes, setNotes, toast }) => {
       <div className="notes-div" data-aos="zoom-out">
         {filteredItems.map((note) => (
           <Note
-            key={note.id}
+            key={note._id} // Using _id for backend note reference
             val={note}
             notes={notes}
             setNotes={setNotes}
             toast={toast}
+            fetchNotes={fetchNotes} // Pass fetchNotes function for updates
           />
         ))}
       </div>

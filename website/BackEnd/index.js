@@ -12,6 +12,13 @@ const passport = require("passport");
 const TodoRoutes = require("./Routes/TodoRoutes");
 const NoteRoutes = require("./Routes/NoteRoutes");
 const TaskRoutes = require("./Routes/TaskRoutes");
+const profileRoutes = require("./routes/profile");
+const mongoose = require("mongoose");
+
+// Required for Multer GridFS Storage
+const multer = require("multer");
+const { GridFsStorage } = require("multer-gridfs-storage");
+const gridfsStream = require("gridfs-stream");
 
 const PORT = 8080;
 
@@ -26,13 +33,14 @@ app.use([
   express.urlencoded({ extended: true }),
 ]);
 
+// Session and MongoDB setup
 const sessionStore = new MongoStore({
-  mongoUrl: "mongodb+srv://sharmamauli001:Sharma123@cluster0.nbi2l.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+  mongoUrl: process.env.MONGO_URI || "mongodb+srv://sharmamauli001:Sharma123@cluster0.nbi2l.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
   collectionName: "session",
 });
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || "waijdasdnkj123",
     resave: true,
     saveUninitialized: true,
     store: sessionStore,
@@ -45,10 +53,12 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Base Route
 app.get("/", (req, res) => {
-  res.json(" hello ");
+  res.json("Hello, welcome to the server!");
 });
 
+// Register Route
 app.post("/register", async (req, res) => {
   const { userName, email, password } = req.body;
   const salt = await bcrypt.genSalt(10);
@@ -61,7 +71,7 @@ app.post("/register", async (req, res) => {
 
   try {
     const user = await authModel.findOne({ email: email });
-    if (user) res.json("Already Registerd");
+    if (user) res.json("Already Registered");
     else {
       const savedUser = await newAuth.save();
       res.send(savedUser);
@@ -71,122 +81,108 @@ app.post("/register", async (req, res) => {
   }
 });
 
-//Google authentication using passport
-app.get(
-  "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
-);
+// MongoDB connection setup for GridFS
+const mongoURI = process.env.MONGO_URI || "mongodb+srv://sharmamauli001:Sharma123@cluster0.nbi2l.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
-app.get(
-  "/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: process.env.FRONTEND_DOMAIN,
-    successRedirect: `${process.env.FRONTEND_DOMAIN}/Home`,
-  })
-);
+// Use a single connection with retry logic
+mongoose.connect(mongoURI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 10000,  // Timeout after 10 seconds
+  connectTimeoutMS: 15000,  // Connection timeout after 15 seconds
+})
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.log("MongoDB connection error:", err));
 
-//For Facebook Authentication
 
-app.get("/facebook", passport.authenticate("facebook", { scope: ["email"] }));
+// Initialize GridFS
+const conn = mongoose.connection;
+let gfs;
 
-app.get(
-  "/facebook/callback",
-  passport.authenticate("facebook", {
-    failureRedirect: process.env.FRONTEND_DOMAIN,
-    successRedirect: `${process.env.FRONTEND_DOMAIN}/Home`,
-  })
-);
+conn.once("open", () => {
+  gfs = gridfsStream(conn.db, mongoose.mongo);
+  gfs.collection("uploads"); // Set the collection name for files
+});
 
-//Local Login
-app.post(
-  "/login",
-  passport.authenticate("local", {
-    failureRedirect: process.env.FRONTEND_DOMAIN,
-  }),
-  (req, res) => {
-    res.json({ success: "successfully logged in" });
-  }
-);
+// Set up Multer GridFS storage
+const storage = new GridFsStorage({
+  url: mongoURI,
+  file: (req, file) => {
+    return new Promise((resolve, reject) => {
+      const fileInfo = {
+        filename: file.originalname,
+        bucketName: "uploads", // GridFS collection
+      };
+      resolve(fileInfo);
+    });
+  },
+});
+const upload = multer({ storage });
 
-//logout
-app.get("/logout", (req, res, next) => {
-  req.logOut((err) => {
-    if (err) res.send(err);
-    else res.json({ success: "logged out" });
+// Route to upload an image to MongoDB (GridFS)
+app.post("/upload", upload.single("file"), (req, res) => {
+  res.json({
+    file: req.file // Return file info (including ID, filename, etc.)
   });
 });
 
+// Route to serve an image from MongoDB (GridFS)
+app.get("/file/:filename", (req, res) => {
+  const filename = req.params.filename;
+
+  gfs.files.findOne({ filename }, (err, file) => {
+    if (err || !file) {
+      return res.status(404).json({ err: "No such file exists" });
+    }
+
+    const readStream = gfs.createReadStream(file.filename);
+    res.set("Content-Type", file.contentType);
+    readStream.pipe(res); // Pipe the file content to the response
+  });
+});
+
+// Google Authentication
+app.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+app.get("/google/callback", passport.authenticate("google", {
+  failureRedirect: process.env.FRONTEND_DOMAIN,
+  successRedirect: `${process.env.FRONTEND_DOMAIN}/Home`,
+}));
+
+// Facebook Authentication
+app.get("/facebook", passport.authenticate("facebook", { scope: ["email"] }));
+
+app.get("/facebook/callback", passport.authenticate("facebook", {
+  failureRedirect: process.env.FRONTEND_DOMAIN,
+  successRedirect: `${process.env.FRONTEND_DOMAIN}/Home`,
+}));
+
+// Local Login
+app.post("/login", passport.authenticate("local", { failureRedirect: process.env.FRONTEND_DOMAIN }), (req, res) => {
+  res.json({ success: "Successfully logged in" });
+});
+
+// Logout
+app.get("/logout", (req, res, next) => {
+  req.logOut((err) => {
+    if (err) res.send(err);
+    else res.json({ success: "Logged out" });
+  });
+});
+
+// Get User Information
 app.get("/getUser", (req, res, next) => {
   if (req.user) {
     res.json(req.user);
   }
 });
 
-//Forgot and reset password
-app.post("/resetPassword/:id/:token", async (req, res) => {
-  const { id, token } = req.params;
-  console.log(id);
-  const { newPassword } = req.body;
-  jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, encode) => {
-    if (err) return res.send({ Status: "Try again after few minutes" });
-    else {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(newPassword, salt);
-      authModel
-        .findByIdAndUpdate({ _id: id }, { password: hashedPassword })
-        .then((u) => res.send({ Status: "success" }))
-        .catch((err) => res.send({ Status: err }));
-    }
-  });
-});
+// Profile Routes
+app.use("/api/profile", profileRoutes);
 
-app.post("/forgotpass", async (req, res) => {
-  const { email } = req.body;
-  await authModel.findOne({ email: email }).then((user) => {
-    if (!user) return res.send({ Status: "Enter a valid email" });
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY, {
-      expiresIn: "1d",
-    });
-    var transporter = nodemailer.createTransport({
-      service: "gmail",
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: "jhonmoorthi85131@gmail.com",
-        pass: "klxb xvje ygnr qvbo",
-      },
-    });
-
-    var mailOptions = {
-      from: "jhonmoorthi85131@gmail.com",
-      to: email,
-      subject: "Forgot password for task manager",
-      text: `${process.env.FRONTEND_DOMAIN}/ResetPass/${user._id}/${token}`,
-    };
-
-    transporter.sendMail(mailOptions, function (error, info) {
-      if (error) {
-        console.log(error);
-      } else {
-        return res.send({ Status: "success" });
-      }
-    });
-  });
-});
-
-const authenticator = (req, res, next) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Login Required" });
-  }
-  next();
-};
-app.use("/todo", [authenticator, TodoRoutes]);
-app.use("/note", [authenticator, NoteRoutes]);
-app.use("/task", [authenticator, TaskRoutes]);
-
+// Start the server
 app.listen(PORT, () => {
-  console.log(`Server Running On Port : ${PORT} `);
+  console.log(`Server Running On Port : ${PORT}`);
 });
 
 module.exports = app;

@@ -7,11 +7,14 @@ import { BiLogOut, BiSolidDashboard } from "react-icons/bi";
 import { useNavigate } from "react-router-dom";
 import icon from "../utils/icon.PNG";
 import Aos from "aos";
+import { FaUserPlus } from "react-icons/fa";
 import "aos/dist/aos.css";
 
+// Update Navbar component
 const Navbar = () => {
   const navigate = useNavigate();
   axios.defaults.withCredentials = true;
+
   useEffect(() => {
     Aos.init({ duration: 800 });
   }, []);
@@ -29,6 +32,12 @@ const Navbar = () => {
   function gototDashboard() {
     navigate("/Home");
   }
+
+  // New function to navigate to "Add Profile" section
+  function openAddProfile() {
+    navigate("/add-profile");
+  }
+
   function logOut() {
     axios
       .get(`${process.env.REACT_APP_API_URL}/logout`)
@@ -53,9 +62,16 @@ const Navbar = () => {
       <button onClick={openTask} className="nav-icon skull">
         <IoCalendarNumber size={20} color="white" />
       </button>
-      <button onClick={openNotes} className="nav-icon skull">
+      {/* <button onClick={openNotes} className="nav-icon skull">
         <FaRegNoteSticky size={20} color="white" />
-      </button>
+      </button> */}
+
+      {/* Add Profile Button */}
+      <button onClick={openAddProfile} className="nav-icon skull">
+  <FaUserPlus size={20} color="white" />
+</button>
+
+
       <button className="nav-icon skull" onClick={logOut}>
         <BiLogOut size={22} color="white" />
       </button>

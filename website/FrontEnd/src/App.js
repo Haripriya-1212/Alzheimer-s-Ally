@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import Toggler from "./components/Toggler";
 import Task from "./components/Task";
 import Home from "./components/Home";
@@ -9,7 +10,7 @@ import Dashboard from "./components/Dashboard";
 import Notes from "./components/Notes";
 import ForgotPass from "./components/ForgotPass";
 import ResetPass from "./components/ResetPass";
-import { useState } from "react";
+import AddProfile from "./components/AddProfile"; // Import the AddProfile component
 
 function App() {
   const [notes, setNotes] = useState([]);
@@ -31,12 +32,18 @@ function App() {
         theme="light"
       />
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Toggler toast={toast} />}></Route>
         <Route path="/ForgotPass" element={<ForgotPass toast={toast} />} />
         <Route
           path="/ResetPass/:id/:token"
           element={<ResetPass toast={toast} />}
         />
+        
+        {/* Add Profile Route */}
+        <Route path="/add-profile" element={<AddProfile />} />
+
+        {/* Home Route with Nested Routes */}
         <Route path="/Home" element={<Home tasks={tasks} />}>
           <Route
             index
@@ -52,15 +59,15 @@ function App() {
             }
           />
           <Route
-            path="/Home/todos"
+            path="todos"
             element={<Todo toast={toast} todo={todo} setTodo={setTodo} />}
           />
           <Route
-            path="/Home/notes"
+            path="notes"
             element={<Notes notes={notes} setNotes={setNotes} toast={toast} />}
           />
           <Route
-            path="/Home/task"
+            path="task"
             element={<Task toast={toast} tasks={tasks} setTasks={setTasks} />}
           />
         </Route>

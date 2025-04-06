@@ -7,7 +7,7 @@ const authModel = require("./Models/Model");
 const bcrypt = require("bcrypt");
 
 // Validate required environment variables
-if (!(process.env.FACEBOOK_CLIENT_ID) || !(process.env.FACEBOOK_CLIENT_SECRET)) {
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   throw new Error("Missing Google OAuth environment variables");
 }
 if (!process.env.FACEBOOK_CLIENT_ID || !process.env.FACEBOOK_CLIENT_SECRET) {
@@ -40,9 +40,9 @@ const googleCallback = async (accessToken, refreshToken, profile, done) => {
   try {
     let user = await authModel.findOne({ googleId: profile.id });
     if (!user) user = await authModel.create(newUser);
-    done(null, user);
+    return done(null, user);
   } catch (err) {
-    done(err);
+    return done(err);
   }
 };
 
@@ -57,9 +57,9 @@ const facebookCallback = async (accessToken, refreshToken, profile, done) => {
   try {
     let user = await authModel.findOne({ fbId: profile.id });
     if (!user) user = await authModel.create(newUser);
-    done(null, user);
+    return done(null, user);
   } catch (err) {
-    done(err);
+    return done(err);
   }
 };
 
@@ -72,9 +72,9 @@ const localStrategyCallback = async (email, password, done) => {
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) return done(null, false, { message: "Incorrect password" });
 
-    done(null, user);
+    return done(null, user);
   } catch (err) {
-    done(err);
+    return done(err);
   }
 };
 

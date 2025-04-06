@@ -1,56 +1,48 @@
-const noteRoutes = require("express").Router();
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const noteRoutes = express.Router();
 const dataModel = require("../Models/DataModel");
+const authenticator = require("../middleware/authenticator");  // Use authenticator middleware
 
-noteRoutes.get("/getNote", async (req, res) => {
-  const { _id } = req.user;
-  const newNote = new dataModel({
-    _id: _id,
-  });
-  let note = await dataModel.findById(_id);
-  if (!note) note = await newNote.save();
-  console.log(note.notes);
-  res.json(note.notes);
+// Set up multer for file uploading
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, './uploads'); // Store files in the 'uploads' directory
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // Append timestamp to avoid name conflicts
+  }
 });
 
-noteRoutes.post("/postNote", async (req, res) => {
-  const { _id } = req.user;
-  const note = req.body;
-  await dataModel
-    .findByIdAndUpdate({ _id: _id }, { $push: { notes: note } })
-    .catch((err) => {
-      console.log(err);
-    });
-  res.json({ success: "Posted Successfully" });
-});
+const upload = multer({ storage });
 
-noteRoutes.patch("/updateNote/:id", async (req, res) => {
-  const { id } = req.params;
-  const { newText } = req.body;
-  await dataModel
-    .findOneAndUpdate(
-      { "notes.id": id },
-      {
-        $set: {
-          "notes.$.noteText": newText,
-        },
-      },
+// Add a profile to a specific note
+noteRoutes.post("/addProfile/:noteId", authenticator, upload.single('picture'), async (req, res) => {
+  try {
+    const { noteId } = req.params;
+    const { name, relation } = req.body;
+
+    const profile = {
+      name,
+      relation,
+      picture: req.file ? `/uploads/${req.file.filename}` : null, // Save the uploaded file path
+    };
+
+    const updatedNote = await dataModel.findOneAndUpdate(
+      { "notes.id": noteId },
+      { $push: { "notes.$.profiles": profile } },
       { new: true }
-    )
-    .catch((err) => {
-      console.log(err);
-    });
-  res.json({ success: "Updated successfully" });
+    );
+
+    res.json({ success: "Profile added successfully", updatedNote });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error adding profile" });
+  }
 });
 
-noteRoutes.delete("/deleteNote/:id", async (req, res) => {
-  const { _id } = req.user;
-  const { id } = req.params;
-  await dataModel
-    .findByIdAndUpdate(_id, { $pull: { notes: { id: id } } })
-    .catch((err) => {
-      console.log(err);
-    });
-  res.json({ success: "Deleted successfully" });
-});
+// Serve static files (uploaded images)
+noteRoutes.use('/uploads', express.static('uploads'));
 
 module.exports = noteRoutes;
